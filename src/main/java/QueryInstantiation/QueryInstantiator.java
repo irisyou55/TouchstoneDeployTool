@@ -4,6 +4,7 @@ import ConstraintChains.*;
 import DataType.TSInteger;
 import DataType.TSVarchar;
 import Schema.Attribute;
+import Schema.SchemaReader;
 import Schema.Table;
 import org.apache.log4j.Logger;
 import org.apache.log4j.PropertyConfigurator;
@@ -39,16 +40,16 @@ public class QueryInstantiator {
     }
 
     public static void main(String[] args) {
-        PropertyConfigurator.configure(".//test//lib//log4j.properties");
+        PropertyConfigurator.configure("src/test/lib/log4j.properties");
         System.setProperty("com.wolfram.jlink.libdir",
                 "C://Program Files//Wolfram Research//Mathematica//10.0//SystemFiles//Links//JLink");
 
         SchemaReader schemaReader = new SchemaReader();
-        List<Table> tables = schemaReader.read(".//test//input//function_test_schema_0.txt");
-        ConstraintChainsReader constraintChainsReader = new ConstraintChainsReader();
-        List<ConstraintChain> constraintChains = constraintChainsReader.read(".//test//input//function_test_cardinality_constraints_0.txt");
+        List<Table> tables = schemaReader.read("src/test/input/function_test_schema_0.txt");
+        ConstraintChainReader constraintChainsReader = new ConstraintChainReader();
+        List<ConstraintChain> constraintChains = constraintChainsReader.read("src/test/input/function_test_cardinality_constraints_0.txt");
         NonEquiJoinConstraintsReader nonEquiJoinConstraintsReader = new NonEquiJoinConstraintsReader();
-        List<NonEquiJoinConstraint> nonEquiJoinConstraints = nonEquiJoinConstraintsReader.read(".//test//input//function_test_non_equi_join_0.txt");
+        List<NonEquiJoinConstraint> nonEquiJoinConstraints = nonEquiJoinConstraintsReader.read("src/test/input/function_test_non_equi_join_0.txt");
 //		ComputingThreadPool computingThreadPool = new ComputingThreadPool(1, 20, 0.00001);
         ComputingThreadPool computingThreadPool = new ComputingThreadPool(4, 20, 0.00001);
         QueryInstantiator queryInstantiator = new QueryInstantiator(tables, constraintChains, nonEquiJoinConstraints, 20, 0.00001, computingThreadPool);
@@ -56,7 +57,6 @@ public class QueryInstantiator {
     }
 
     private void init(){
-        logger = Logger.getLogger(Touchstone.class);
         parameters = new ArrayList<Parameter>();
         if (constraintChains == null) {
             constraintChains = Collections.emptyList();

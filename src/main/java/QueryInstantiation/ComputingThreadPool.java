@@ -2,7 +2,9 @@ package QueryInstantiation;
 
 import DataType.TSDataTypeInfo;
 import DataType.TSInteger;
+import Mathematica.Mathematica;
 import Schema.Attribute;
+import org.apache.log4j.Logger;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -102,7 +104,6 @@ class ComputingThread implements Runnable {
 
     private void init() {
         inactive = true;
-        logger = Logger.getLogger(Touchstone.class);
     }
 
     public boolean isInactive() {
