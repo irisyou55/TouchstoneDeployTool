@@ -1,17 +1,20 @@
 package QueryInstantiation;
 
-import DataType.TSDataTypeInfo;
-import DataType.TSInteger;
-import Mathematica.Mathematica;
-import Schema.Attribute;
-import org.apache.log4j.Logger;
-
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
+
+import DataType.TSDataTypeInfo;
+import DataType.TSInteger;
+import Mathematica.Mathematica;
+import QueryInstantiation.Parameter;
+import Schema.Attribute;
+import org.apache.log4j.Logger;
+import run.RunController;
+
 
 public class ComputingThreadPool {
 
@@ -80,8 +83,8 @@ public class ComputingThreadPool {
     public void clearParameterMap() {
         parameterMap.clear();
     }
-
 }
+
 class ComputingThread implements Runnable {
 
     private ArrayBlockingQueue<ComputingTask> tasksQueue = null;
@@ -104,6 +107,7 @@ class ComputingThread implements Runnable {
 
     private void init() {
         inactive = true;
+        logger = Logger.getLogger(RunController.class);
     }
 
     public boolean isInactive() {
@@ -116,6 +120,8 @@ class ComputingThread implements Runnable {
                 inactive = true;
                 ComputingTask task = tasksQueue.take();
                 inactive = false;
+
+                // filter
                 if (task.getChildren() == null) {
                     synchronized (ComputingThread.class) {
                         if (parameterMap.containsKey(task.getId())) {
@@ -137,6 +143,7 @@ class ComputingThread implements Runnable {
                             }
                         }
                     }
+                    // all children have been instantiated
                     if (task.getChildren().size() == task.getChildrensConstraints().size()) {
                         synchronized (ComputingThread.class) {
                             if (parameterMap.containsKey(task.getId())) {
@@ -145,6 +152,7 @@ class ComputingThread implements Runnable {
                                 parameterMap.put(task.getId(), solve(task));
                             }
                         }
+                        // there are children have not been instantiated
                     } else {
                         task.getChildrensConstraints().clear();
                         tasksQueue.put(task);
@@ -167,7 +175,10 @@ class ComputingThread implements Runnable {
         return para;
     }
 
-    private Parameter subSolve1(ComputingTask task){
+    // situation: the expression is only a single attribute (don't need the Mathematica's calculation)
+    // for non-equi join, assuming that the filter operation is at the bottom of the query tree
+    // range filter only involves the numeric attribute
+    private Parameter subSolve1(ComputingTask task) {
         String operator = task.getOperator();
         Attribute attribute = task.getAttributes().get(0);
         float probability = task.getProbability();
@@ -192,8 +203,7 @@ class ComputingThread implements Runnable {
                 paraValue = (max - min) * probability + min;
             }
             //date, datetime, real, decimal
-        }
-        else{
+        } else {
             double min = attribute.getDataTypeInfo().getMinValue();
             double max = attribute.getDataTypeInfo().getMaxValue();
             paraValue = (max - min) * probability + min;
@@ -208,9 +218,9 @@ class ComputingThread implements Runnable {
 
         logger.debug("" + task + parameter);
         return parameter;
-
     }
 
+    // all situation is suitable
     private Parameter subSolve2(ComputingTask task) {
         if (mathematica == null) {
             mathematica = new Mathematica();
@@ -228,13 +238,17 @@ class ComputingThread implements Runnable {
 
         double mathSpaceSize = 1;
         for (int i = 0; i < attributes.size(); i++) {
+            // the independent variable must be equal probability
+            // for adjusted integer typed attribute, its independent variable is the 'randomValue' and the domain is 1
+            // for other situations, the generative functions can be abstracted as 'y=x', 'min<=x<=max'
             if (attributes.get(i).getDataType().equals("integer")) {
-                TSInteger dataTypeInfo = (TSInteger) attributes.get(i).getDataTypeInfo();
+                TSInteger dataTypeInfo = (TSInteger)attributes.get(i).getDataTypeInfo();
                 if (dataTypeInfo.isAdjusted()) {
                     continue;
                 }
             }
             TSDataTypeInfo dataTypeInfo = attributes.get(i).getDataTypeInfo();
+            // only involves the numeric attribute
             mathSpaceSize *= (dataTypeInfo.getMaxValue() - dataTypeInfo.getMinValue());
         }
 
@@ -245,10 +259,11 @@ class ComputingThread implements Runnable {
         logger.debug(task + "\n\tminValue: " + minValue + "\tmaxValue: " + maxValue +
                 "\tmathSpaceSize: " + mathSpaceSize);
 
+        // binary search
         for (int i = 0; i < maxIterations; i++) {
             double inteSpaceSize = mathematica.integrate(expression, operator, attrNames, attributes,
                     predictedValue, childrensConstraints);
-            float mathProbability = (float) (inteSpaceSize / mathSpaceSize);
+            float mathProbability = (float)(inteSpaceSize / mathSpaceSize);
             float relativeError = Math.abs(mathProbability - probability);
             logger.debug("\n\tmathematica iterations: " + i + "\tcurrent probability: " +
                     mathProbability + "\trelative error: " + relativeError);
@@ -257,11 +272,12 @@ class ComputingThread implements Runnable {
                 bestValue = predictedValue;
                 bestRelativeError = relativeError;
             }
-            if (bestRelativeError <= requiredRelativeError) {
+            if(bestRelativeError <= requiredRelativeError) {
                 break;
             }
 
-            if ((operator.equals(">") || operator.equals(">=")) ^ (mathProbability > probability)) {
+            // reset the value of 'predictedValue' according to the idea of binary search
+            if((operator.equals(">") || operator.equals(">=")) ^ (mathProbability > probability)) {
                 maxValue = predictedValue;
             } else {
                 minValue = predictedValue;
@@ -271,13 +287,12 @@ class ComputingThread implements Runnable {
 
         List<String> values = new ArrayList<String>();
         values.add(new Double(bestValue).toString());
-        long cardinality = (long) (task.getInputDataSize() * probability);
-        long deviation = (long) (task.getInputDataSize() * bestRelativeError);
+        long cardinality = (long)(task.getInputDataSize() * probability);
+        long deviation = (long)(task.getInputDataSize() * bestRelativeError);
         String constraint = task.getExpression() + " " + operator + " " + new BigDecimal(bestValue).toPlainString();
         Parameter parameter = new Parameter(task.getId(), values, cardinality, deviation, task.isBet(), constraint);
 
         logger.debug(parameter);
         return parameter;
     }
-
 }

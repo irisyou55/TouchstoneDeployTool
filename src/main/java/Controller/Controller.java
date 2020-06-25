@@ -1,25 +1,40 @@
 package Controller;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.concurrent.CountDownLatch;
+
 import ConstraintChains.ConstraintChain;
+import ConstraintChains.ConstraintChainReader;
 import Pretreatment.Preprocessor;
 import Pretreatment.TableGeneTemplate;
+import QueryInstantiation.ComputingThreadPool;
 import QueryInstantiation.Parameter;
-import QueryInstantiation.QueryInstantiator;
+import run.QueryInstantiator;
 import Schema.SchemaReader;
 import Schema.Table;
 import org.apache.log4j.Logger;
 import org.apache.log4j.PropertyConfigurator;
 import run.Configurations;
+import run.RunController;
 
-import java.util.*;
-import java.util.concurrent.CountDownLatch;
 
+// the controller of the distributed data generator (Touchstone)
+// main function: 1. assign the data generation tasks to all data generators,
+//                2. merge the join information of the primary key maintained by data generators
 public class Controller {
 
+    // table names stored in the partial order
     private List<String> tablePartialOrder = null;
 
+    // map: table name -> its generation template
     private Map<String, TableGeneTemplate> tableGeneTemplateMap = null;
 
+    // running configurations
     private Configurations configurations = null;
 
     private Logger logger = null;
@@ -30,15 +45,22 @@ public class Controller {
         this.tablePartialOrder = tablePartialOrder;
         this.tableGeneTemplateMap = tableGeneTemplateMap;
         this.configurations = configurations;
-
+        logger = Logger.getLogger(RunController.class);
     }
 
+    // the clients are linked with the servers of data generators
+    // they are used for sending data generation task
     private List<ControllerClient> clients = null;
 
+    // store all 'pkJoinInfo's received from data generators
     private static List<Map<Integer, ArrayList<long[]>>> pkJoinInfoList = null;
 
+    // control the time point of merging the join information of the primary key (pkJoinInfoList)
     private static CountDownLatch countDownLatch = null;
 
+    // set up the server and clients of the controller
+    // server: receive the join information of the primary key (pkJoinInfo)
+    // clients: send the data generation task
     public void setUpNetworkThreads() {
         new Thread(new ControllerServer(configurations.getControllerPort())).start();
 
@@ -52,6 +74,7 @@ public class Controller {
         }
     }
 
+    // generate data: tables are generated one by one in accordance with the partial order
     public void geneData() {
 
         pkJoinInfoList = new ArrayList<Map<Integer, ArrayList<long[]>>>();
@@ -59,7 +82,7 @@ public class Controller {
         // map: primary key -> reference count
         // it is used to clear the unnecessary join information of primary keys in time
         Map<String, Integer> pkReferenceCountMap = new HashMap<String, Integer>();
-        Iterator<Map.Entry<String, TableGeneTemplate>> iterator = tableGeneTemplateMap.entrySet().iterator();
+        Iterator<Entry<String, TableGeneTemplate>> iterator = tableGeneTemplateMap.entrySet().iterator();
         while (iterator.hasNext()) {
             TableGeneTemplate template = iterator.next().getValue();
             List<String> referencedKeys = template.getReferencedKeys();
@@ -73,15 +96,20 @@ public class Controller {
             }
         }
         logger.info("\n\tThe 'pkReferenceCountMap' (primary key -> reference count) is: " + pkReferenceCountMap);
+
+        // map: primary key (its string representation) -> (combined join statuses -> primary keys list)
+        // 'neededPKJoinInfo' -> 'fksJoinInfo'
         Map<String, Map<Integer, ArrayList<long[]>>> neededPKJoinInfo = new HashMap<String,
                 Map<Integer, ArrayList<long[]>>>();
+
+        // wait until all clients are connected to the server of the data generator
         waitClientsConnected();
 
         long startTime = System.currentTimeMillis();
 
         logger.info("\n\tStart generating data!");
 
-        for (int i = 0; i < tablePartialOrder.size(); i++){
+        for (int i = 0; i < tablePartialOrder.size(); i++) {
             String tableName = tablePartialOrder.get(i);
             TableGeneTemplate template = tableGeneTemplateMap.get(tableName);
 
@@ -103,6 +131,7 @@ public class Controller {
             logger.info("\n\tThe 'fkJoinInfo' has been set!");
             logger.info("\n\tThe key set of neededPKJoinInfo is: " + neededPKJoinInfo.keySet());
 
+            // for experiments
             logger.info("\n\tThe number of constraint chains: " + template.getConstraintChainsNum());
             logger.info("\n\tThe number of constraints in constraint chains: " + template.getConstraintsNum());
             logger.info("\n\tThe number of entries in join information table: " + template.getEntriesNum());
@@ -114,6 +143,7 @@ public class Controller {
             logger.info(template);
             logger.info("\n\tThe template of " + tableName + " has been successfully sent!");
 
+            // wait for all data generators to return the join information of primary key
             try {
                 countDownLatch.await();
             } catch (InterruptedException e) {
@@ -133,12 +163,13 @@ public class Controller {
         long endTime = System.currentTimeMillis();
         logger.info("\n\tTime of data generation: " + (endTime - startTime) + "ms");
     }
+
     private void waitClientsConnected() {
         loop : while (true) {
             for (int i = 0; i < clients.size(); i++) {
                 if (!clients.get(i).isConnected()) {
                     try {
-                        Thread.sleep(1000);
+                        Thread.sleep(3000);
                     } catch (InterruptedException e) {
                         e.printStackTrace();
                     }
@@ -151,32 +182,36 @@ public class Controller {
         logger.info("\n\tAll data generators startup successful!");
     }
 
+    // it's called by 'ControllerServerHandler' when receiving a 'pkJoinInfo'
     public static synchronized void receivePkJoinInfo(Map<Integer, ArrayList<long[]>> pkJoinInfo) {
         pkJoinInfoList.add(pkJoinInfo);
         countDownLatch.countDown();
     }
 
-    public static void main(String[] args){
-        PropertyConfigurator.configure(".//test//lib//log4j.properties");
+    // test
+    public static void main(String[] args) {
+        PropertyConfigurator.configure("src/test/lib/log4j.properties");
         System.setProperty("com.wolfram.jlink.libdir",
-                "C://Program Files//Wolfram Research//Mathematica//10.0//SystemFiles//Links//JLink");
+                "/Applications/Mathematica.app/Contents/SystemFiles/Links/JLink");
 
-        SchemaReader schemaReader = new SchemaReader();
-        List<Table> tables = schemaReader.read(".//test//input//ssb_schema_sf_1_D.txt");
-        ConstraintChainsReader constraintChainsReader = new ConstraintChainsReader();
-        List<ConstraintChain> constraintChains = constraintChainsReader.read(".//test//input//ssb_cardinality_constraints_sf_1.txt");
-        ComputingThreadPool computingThreadPool = new ComputingThreadPool(2, 20, 0.00001);
-        QueryInstantiator queryInstantiator = new QueryInstantiator(tables, constraintChains, null, 20, 0.00001, computingThreadPool);
-        queryInstantiator.iterate();
-        List<Parameter> parameters = queryInstantiator.getParameters();
+        // TPC-H
+		SchemaReader schemaReader = new SchemaReader();
+		List<Table> tables = schemaReader.read("src/test/input/tpch_schema_sf_1.txt");
+		ConstraintChainReader constraintChainReader = new ConstraintChainReader();
+		List<ConstraintChain> constraintChains = constraintChainReader.read("src/test/input/tpch_cardinality_constraints_sf_1.txt");
+		ComputingThreadPool computingThreadPool = new ComputingThreadPool(2, 20, 0.00001);
+		QueryInstantiator queryInstantiator = new QueryInstantiator(tables, constraintChains, null, 20, 0.00001, computingThreadPool);
+		queryInstantiator.iterate();
+		List<Parameter> parameters = queryInstantiator.getParameters();
 
-        Preprocessor preprocessor = new Preprocessor(tables, constraintChains, parameters);
-        List<String> tablePartialOrder = preprocessor.getPartialOrder();
-        Map<String, TableGeneTemplate> tableGeneTemplateMap = preprocessor.getTableGeneTemplates(1000, 10000);
-        Configurations configurations = new Configurations(".//test//touchstone2.conf");
-        Controller controller = new Controller(tablePartialOrder, tableGeneTemplateMap, configurations);
-        controller.setUpNetworkThreads();
-        controller.geneData();
+		Preprocessor preprocessor = new Preprocessor(tables, constraintChains, parameters);
+		List<String> tablePartialOrder = preprocessor.getPartialOrder();
+		Map<String, TableGeneTemplate> tableGeneTemplateMap = preprocessor.getTableGeneTemplates(1000, 10000);
+		Configurations configurations = new Configurations("src/test/touchstone2.conf");
+		Controller controller = new Controller(tablePartialOrder, tableGeneTemplateMap, configurations);
+		controller.setUpNetworkThreads();
+		controller.geneData();
+
+
     }
-
 }

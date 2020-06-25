@@ -1,21 +1,34 @@
-package QueryInstantiation;
+package run;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 
 import ConstraintChains.*;
 import DataType.TSInteger;
 import DataType.TSVarchar;
+import QueryInstantiation.ComputingTask;
+import QueryInstantiation.ComputingThreadPool;
+import QueryInstantiation.Parameter;
 import Schema.Attribute;
 import Schema.SchemaReader;
 import Schema.Table;
 import org.apache.log4j.Logger;
 import org.apache.log4j.PropertyConfigurator;
 
-import java.util.*;
 
 public class QueryInstantiator {
+
+    // input data
     private List<Table> tables = null;
     private List<ConstraintChain> constraintChains = null;
     private List<NonEquiJoinConstraint> nonEquiJoinConstraints = null;
 
+    // instantiated parameters
     private List<Parameter> parameters = null;
 
     private Logger logger = null;
@@ -23,8 +36,13 @@ public class QueryInstantiator {
     private double requiredGlobalRelativeError;
     private ComputingThreadPool computingThreadPool = null;
 
+    // map: tableName.attrName -> attribute
     private Map<String, Attribute> attributeMap = null;
+
+    // map: tableName -> table
     private Map<String, Table> tableMap = null;
+
+    // map: tableName.attrName -> equality filter operations
     private Map<String, ArrayList<FilterOperation>> attrEquaFilterOperMap = null;
 
     public QueryInstantiator(List<Table> tables, List<ConstraintChain> constraintChains,
@@ -37,26 +55,11 @@ public class QueryInstantiator {
         this.requiredGlobalRelativeError = requiredGlobalRelativeError;
         this.computingThreadPool = computingThreadPool;
         init();
+
     }
 
-    public static void main(String[] args) {
-        PropertyConfigurator.configure("src/test/lib/log4j.properties");
-        System.setProperty("com.wolfram.jlink.libdir",
-                "C://Program Files//Wolfram Research//Mathematica//10.0//SystemFiles//Links//JLink");
-
-        SchemaReader schemaReader = new SchemaReader();
-        List<Table> tables = schemaReader.read("src/test/input/function_test_schema_0.txt");
-        ConstraintChainReader constraintChainsReader = new ConstraintChainReader();
-        List<ConstraintChain> constraintChains = constraintChainsReader.read("src/test/input/function_test_cardinality_constraints_0.txt");
-        NonEquiJoinConstraintsReader nonEquiJoinConstraintsReader = new NonEquiJoinConstraintsReader();
-        List<NonEquiJoinConstraint> nonEquiJoinConstraints = nonEquiJoinConstraintsReader.read("src/test/input/function_test_non_equi_join_0.txt");
-//		ComputingThreadPool computingThreadPool = new ComputingThreadPool(1, 20, 0.00001);
-        ComputingThreadPool computingThreadPool = new ComputingThreadPool(4, 20, 0.00001);
-        QueryInstantiator queryInstantiator = new QueryInstantiator(tables, constraintChains, nonEquiJoinConstraints, 20, 0.00001, computingThreadPool);
-        queryInstantiator.iterate();
-    }
-
-    private void init(){
+    private void init() {
+        logger = Logger.getLogger(RunController.class);
         parameters = new ArrayList<Parameter>();
         if (constraintChains == null) {
             constraintChains = Collections.emptyList();
@@ -124,12 +127,12 @@ public class QueryInstantiator {
         }
     }
 
-    public void iterate(){
+    public void iterate() {
         List<Parameter> bestParameters = new ArrayList<Parameter>();
         double bestGlobalRelativeError = Double.MAX_VALUE;
         long startTime = System.currentTimeMillis();
 
-        for(int i = 0; i < maxIterations; i++){
+        for(int i = 0; i < maxIterations; i++) {
             clear();
             adjustValueProbability();
             instantiateParameters();
@@ -146,7 +149,7 @@ public class QueryInstantiator {
             }
             double globalRelativeError = (double)deviationSum / cardinalitySum;
 
-            logger.debug("\nquery instantiation iterations: " + i + "\ninstantiated parameters: " + parameters +
+            logger.info("\nquery instantiation iterations: " + i + "\ninstantiated parameters: " + parameters +
                     "\nglobal relative error: " + globalRelativeError);
 
             if (globalRelativeError < bestGlobalRelativeError) {
@@ -161,7 +164,7 @@ public class QueryInstantiator {
 
         long endTime = System.currentTimeMillis();
         logger.info("\n\tTime of query instantiation: " + (endTime - startTime) + "ms");
-        logger.debug("\nFinal instantiated parameters: " + bestParameters +
+        logger.info("\nFinal instantiated parameters: " + bestParameters +
                 "\nFinal global relative error: " + bestGlobalRelativeError);
     }
 
@@ -181,10 +184,11 @@ public class QueryInstantiator {
     }
 
     private void adjustValueProbability() {
-        Iterator<Map.Entry<String, ArrayList<FilterOperation>>> iterator = attrEquaFilterOperMap.entrySet().iterator();
+        Iterator<Entry<String, ArrayList<FilterOperation>>> iterator = attrEquaFilterOperMap.entrySet().iterator();
+        // map: probability -> instantiated parameter value
         Map<Float, String> probParaValueMap = new HashMap<Float, String>();
         while (iterator.hasNext()) {
-            Map.Entry<String, ArrayList<FilterOperation>> entry = iterator.next();
+            Entry<String, ArrayList<FilterOperation>> entry = iterator.next();
             Attribute attribute = attributeMap.get(entry.getKey());
             Table table = tableMap.get(entry.getKey().split("\\.")[0]);
             ArrayList<FilterOperation> equaFilterOperations = entry.getValue();
@@ -194,10 +198,11 @@ public class QueryInstantiator {
             for (int i = 0; i < equaFilterOperations.size(); i++) {
                 sum += equaFilterOperations.get(i).getProbability();
             }
+            // if overflow > 0, some instantiated parameter values (with same expected probability) must be the same
             float overflow = sum - 1;
             probParaValueMap.clear();
 
-            for(int i = 0; i < equaFilterOperations.size(); i++) {
+            for (int i = 0; i < equaFilterOperations.size(); i++) {
                 String dataType = attribute.getDataType();
                 String operator = equaFilterOperations.get(i).getOperator();
                 float probability = equaFilterOperations.get(i).getProbability();
@@ -206,27 +211,25 @@ public class QueryInstantiator {
                 List<String> values = new ArrayList<String>();
                 long cardinality = (long)(table.getTableSize() * probability);
 
-                if (operator.equals("=")){
+                if (operator.equals("=")) {
                     if (overflow > 0 && probParaValueMap.containsKey(probability)) {
                         values.add(probParaValueMap.get(probability));
                         overflow -= probability;
-                    }
-                    else{
+                    } else {
                         if (dataType.equals("integer")) {
                             TSInteger dataTypeInfo = (TSInteger)attribute.getDataTypeInfo();
                             Long paraValue = dataTypeInfo.adjustValueProbability(probability);
                             probParaValueMap.put(probability, paraValue.toString());
                             values.add(paraValue.toString());
-                        }
-                        else if (dataType.equals("varchar")) {
+                        } else if (dataType.equals("varchar")) {
                             TSVarchar dataTypeInfo = (TSVarchar)attribute.getDataTypeInfo();
                             String paraValue = dataTypeInfo.addEqualCandidate(probability);
                             probParaValueMap.put(probability, paraValue);
                             values.add(paraValue);
                         }
                     }
-                }
-                else if (operator.matches("in\\([0-9]+\\)")) {
+                } else if (operator.matches("in\\([0-9]+\\)")) {
+                    // the parameter values in an 'in' operator can not be the same
                     int index1 = operator.indexOf('(');
                     int index2 = operator.indexOf(')');
                     int size = Integer.parseInt(operator.substring(index1 + 1, index2));
@@ -236,8 +239,7 @@ public class QueryInstantiator {
                         values.add(probParaValueMap.get(subProbability));
                         overflow -= subProbability;
                         j = 1;
-                    }
-                    else {
+                    } else {
                         j = 0;
                         if (dataType.equals("integer")) {
                             TSInteger dataTypeInfo = (TSInteger)attribute.getDataTypeInfo();
@@ -246,8 +248,7 @@ public class QueryInstantiator {
                                 probParaValueMap.put(subProbability, paraValue.toString());
                                 values.add(paraValue.toString());
                             }
-                        }
-                        else if (dataType.equals("varchar")) {
+                        } else if (dataType.equals("varchar")) {
                             TSVarchar dataTypeInfo = (TSVarchar)attribute.getDataTypeInfo();
                             for (; j < size; j++) {
                                 String paraValue = dataTypeInfo.addEqualCandidate(subProbability);
@@ -256,8 +257,7 @@ public class QueryInstantiator {
                             }
                         }
                     }
-                }
-                else if (operator.equals("like")) {
+                } else if (operator.equals("like")) {
                     if (dataType.equals("varchar")) {
                         TSVarchar dataTypeInfo = (TSVarchar)attribute.getDataTypeInfo();
                         String paraValue = dataTypeInfo.addLikeCandidate(probability);
@@ -268,13 +268,13 @@ public class QueryInstantiator {
                 if (values.size() == 0) {
                     logger.error("\n\tCan not handle the basic filter operation: " + equaFilterOperations.get(i));
                     System.exit(0);
-                }
-                else {
+                } else {
                     parameters.add(new Parameter(id, values, cardinality, 0));
                 }
             }
         }
 
+        // reconstitute the generative function of integer typed attributes
         for (int i = 0; i < tables.size(); i++) {
             List<Attribute> attributes = tables.get(i).getAttributes();
             for (int j = 0; j < attributes.size(); j++) {
@@ -295,7 +295,8 @@ public class QueryInstantiator {
             Table table = tableMap.get(chain.getTableName());
             List<CCNode> nodes = chain.getNodes();
             float inputDataSize = table.getTableSize();
-            for (int j = 0; j < nodes.size(); j++){
+
+            for (int j = 0; j < nodes.size(); j++) {
                 int type = nodes.get(j).getType();
                 if (type != 0) {
                     // calculate the input data size of next node
@@ -309,12 +310,13 @@ public class QueryInstantiator {
 
                 Filter filter = (Filter)nodes.get(j).getNode();
                 FilterOperation[] filterOperations = filter.getFilterOperations();
-                for (int k = 0; k < filterOperations.length; k++){
+                for (int k = 0; k < filterOperations.length; k++) {
                     String operator = filterOperations[k].getOperator();
                     if (operator.equals("=") || operator.equals("like") || operator.matches("in\\([0-9]+\\)")) {
                         continue;
                     }
-
+                    // the instantiated targets are: 'filter operations' && 'operator is one of >, >=, <, <=, bet'
+                    // support parallel calculation
                     int id = filterOperations[k].getId();
                     String expression = filterOperations[k].getExpression();
                     float probability = filterOperations[k].getProbability();
@@ -326,15 +328,15 @@ public class QueryInstantiator {
                                 attributeMap, table.getTableName(), inputDataSize, true));
                         computingThreadPool.addTask(new ComputingTask(id, expression, "<", probability2,
                                 attributeMap, table.getTableName(), inputDataSize, true));
-                    }
-                    else {
+                    } else {
                         computingThreadPool.addTask(new ComputingTask(id, expression, operator, probability,
                                 attributeMap, table.getTableName(), inputDataSize, false));
                     }
-                }
+                } // for filterOperations
                 inputDataSize = inputDataSize * filter.getProbability();
-            }
-        }
+            } // for nodes
+        }// for constraintChains
+
         Map<Integer, ComputingTask> taskMap = new HashMap<Integer, ComputingTask>();
         for (int i = 0; i < nonEquiJoinConstraints.size(); i++) {
             NonEquiJoinConstraint nonEquiJoinConstraint = nonEquiJoinConstraints.get(i);
@@ -356,20 +358,35 @@ public class QueryInstantiator {
                 taskMap.put(id, task1);
                 computingThreadPool.addTask(task1);
                 computingThreadPool.addTask(task2);
-            }
-            else {
+            } else {
                 ComputingTask task = new ComputingTask(id, expression, operator, probability, children,
                         attributeMap, taskMap, inputDataSize, false);
                 taskMap.put(id, task);
                 computingThreadPool.addTask(task);
             }
-        }
+        } // for nonEquiJoinConstraints
     }
+
     public List<Parameter> getParameters() {
         return parameters;
     }
 
+    // test
+    public static void main(String[] args) {
+        PropertyConfigurator.configure("src/test/lib/log4j.properties");
+        System.setProperty("com.wolfram.jlink.libdir",
+                "/Applications/Mathematica.app/Contents/SystemFiles/Links/JLink");
 
+        SchemaReader schemaReader = new SchemaReader();
+        List<Table> tables = schemaReader.read("src/test/input/function_test_schema_0.txt");
+        ConstraintChainReader constraintChainsReader = new ConstraintChainReader();
+        List<ConstraintChain> constraintChains = constraintChainsReader.read("src/test/input/function_test_cardinality_constraints_0.txt");
+        NonEquiJoinConstraintsReader nonEquiJoinConstraintsReader = new NonEquiJoinConstraintsReader();
+        List<NonEquiJoinConstraint> nonEquiJoinConstraints = nonEquiJoinConstraintsReader.read("src/test/input/function_test_non_equi_join_0.txt");
+//		ComputingThreadPool computingThreadPool = new ComputingThreadPool(1, 20, 0.00001);
+        ComputingThreadPool computingThreadPool = new ComputingThreadPool(4, 20, 0.00001);
+        QueryInstantiator queryInstantiator = new QueryInstantiator(tables, constraintChains, nonEquiJoinConstraints, 20, 0.00001, computingThreadPool);
+        queryInstantiator.iterate();
 
-
+    }
 }

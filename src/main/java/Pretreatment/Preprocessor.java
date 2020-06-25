@@ -1,23 +1,38 @@
 package Pretreatment;
 
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
+import java.util.stream.Collectors;
+
 import ConstraintChains.*;
+import QueryInstantiation.ComputingThreadPool;
 import QueryInstantiation.Parameter;
-import QueryInstantiation.QueryInstantiator;
+import run.QueryInstantiator;
 import Schema.Attribute;
 import Schema.ForeignKey;
 import Schema.SchemaReader;
 import Schema.Table;
 import org.apache.log4j.Logger;
 import org.apache.log4j.PropertyConfigurator;
+import run.RunController;
 
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
-import java.util.*;
-import java.util.stream.Collectors;
 
+// main functions:
+// 1. get the partial order among tables
+// 2. get the generation templates of tables
 public class Preprocessor {
+
     private List<Table> tables = null;
     private List<ConstraintChain> constraintChains = null;
     private List<Parameter> parameters = null;
@@ -28,13 +43,15 @@ public class Preprocessor {
         this.tables = tables;
         this.constraintChains = constraintChains;
         this.parameters = parameters;
+        logger = Logger.getLogger(RunController.class);
     }
 
+    // get the partial order among tables according to the foreign key constraints
     public List<String> getPartialOrder() {
         Set<String> allTables = new HashSet<String>();
-
+        // the tables with a foreign key (or foreign keys)
         Set<String> nonMetaTables = new HashSet<String>();
-
+        // map: table -> referenced tables (foreign key constraint)
         Map<String, ArrayList<String>> tableDependencyInfo = new HashMap<String, ArrayList<String>>();
         for (int i = 0; i < tables.size(); i++) {
             Table table = tables.get(i);
@@ -50,13 +67,14 @@ public class Preprocessor {
             }
         }
 
+        // the remaining tables are metadata tables
         allTables.removeAll(nonMetaTables);
         Set<String> partialOrder = new LinkedHashSet<String>();
         partialOrder.addAll(allTables);
-        Iterator<Map.Entry<String, ArrayList<String>>> iterator = tableDependencyInfo.entrySet().iterator();
+        Iterator<Entry<String, ArrayList<String>>> iterator = tableDependencyInfo.entrySet().iterator();
         while (true) {
             while (iterator.hasNext()) {
-                Map.Entry<String, ArrayList<String>> entry = iterator.next();
+                Entry<String, ArrayList<String>> entry = iterator.next();
                 if (partialOrder.containsAll(entry.getValue())) {
                     partialOrder.add(entry.getKey());
                 }
@@ -70,14 +88,15 @@ public class Preprocessor {
         logger.debug("\nThe partial order of tables: \n\t" + partialOrder);
         return partialOrder.stream().collect(Collectors.toList());
     }
-    public Map<String, TableGeneTemplate> getTableGeneTemplates(int shuffleMaxNum, int pkvsMaxSize){
+
+    // get the generation templates of all tables
+    public Map<String, TableGeneTemplate> getTableGeneTemplates(int shuffleMaxNum, int pkvsMaxSize) {
         Map<Integer, Parameter> parameterMap = new HashMap<Integer, Parameter>();
         for (int j = 0; j < parameters.size(); j++) {
             parameterMap.put(parameters.get(j).getId(), parameters.get(j));
         }
 
         Map<String, TableGeneTemplate> tableGeneTemplateMap = new HashMap<String, TableGeneTemplate>();
-
         for (int i = 0; i < tables.size(); i++) {
             Table table = tables.get(i);
             String tableName = table.getTableName();
@@ -91,6 +110,7 @@ public class Preprocessor {
             Map<Integer, Parameter> localParameterMap = new HashMap<Integer, Parameter>();
             Map<String, Attribute> attributeMap = new HashMap<String, Attribute>();
 
+            // keys
             List<String> primaryKey = table.getPrimaryKey();
             List<ForeignKey> foreignKeys = table.getForeignKeys();
             loop : for (int j = 0; j < primaryKey.size(); j++) {
@@ -101,7 +121,7 @@ public class Preprocessor {
                 }
                 keys.add(new Key(primaryKey.get(j), 0));
             }
-
+            // add an attribute to ensure the uniqueness of the primary key
             if (keys.size() == 0) {
                 keys.add(new Key("unique_number", 0));
             }
@@ -109,12 +129,14 @@ public class Preprocessor {
                 keys.add(new Key(tableName + "." + foreignKeys.get(j).getAttrName(), 1));
             }
 
+            // tableConstraintChains
             for (int j = 0; j < constraintChains.size(); j++) {
                 if (constraintChains.get(j).getTableName().equals(tableName)) {
                     tableConstraintChains.add(constraintChains.get(j));
                 }
             }
 
+            // referencedKeys (support mixed reference)
             foreignKeys.sort((x, y) -> x.getReferencedKey().compareTo(y.getReferencedKey()));
             for (int index = 0, j = 0; j < foreignKeys.size(); j++) {
                 if ((j < foreignKeys.size() - 1)) {
@@ -135,11 +157,13 @@ public class Preprocessor {
                 index = j + 1;
             }
 
+            // referKeyForeKeyMap
             for (int j = 0; j < foreignKeys.size(); j++) {
                 referKeyForeKeyMap.put(foreignKeys.get(j).getReferencedKey(),
                         tableName + "." + foreignKeys.get(j).getAttrName());
             }
 
+            // localParameterMap
             for (int j = 0; j < tableConstraintChains.size(); j++) {
                 List<CCNode> nodes = tableConstraintChains.get(j).getNodes();
                 for (int k = 0; k < nodes.size(); k++) {
@@ -153,6 +177,7 @@ public class Preprocessor {
                 }
             }
 
+            // attributeMap
             for (int j = 0; j < attributes.size(); j++) {
                 attributeMap.put(attributes.get(j).getAttrName(), attributes.get(j));
             }
@@ -167,15 +192,16 @@ public class Preprocessor {
         return tableGeneTemplateMap;
     }
 
+    // test
     public static void main(String[] args) throws Exception {
-        PropertyConfigurator.configure(".//test//lib//log4j.properties");
+        PropertyConfigurator.configure("src/test/lib/log4j.properties");
         System.setProperty("com.wolfram.jlink.libdir",
-                "C://Program Files//Wolfram Research//Mathematica//10.0//SystemFiles//Links//JLink");
+                "/Applications/Mathematica.app/Contents/SystemFiles/Links/JLink");
 
         SchemaReader schemaReader = new SchemaReader();
-        List<Table> tables = schemaReader.read(".//test//input//tpch_schema_sf_1.txt");
+        List<Table> tables = schemaReader.read("src/test/input/tpch_schema_sf_1.txt");
         ConstraintChainReader constraintChainReader = new ConstraintChainReader();
-        List<ConstraintChain> constraintChains = constraintChainReader.read(".//test//input//tpch_cardinality_constraints_sf_1.txt");
+        List<ConstraintChain> constraintChains = constraintChainReader.read("src/test/input/tpch_cardinality_constraints_sf_1.txt");
         ComputingThreadPool computingThreadPool = new ComputingThreadPool(4, 20, 0.00001);
         QueryInstantiator queryInstantiator = new QueryInstantiator(tables, constraintChains, null, 20, 0.00001, computingThreadPool);
         queryInstantiator.iterate();
@@ -186,10 +212,10 @@ public class Preprocessor {
         Map<String, TableGeneTemplate> tableGeneTemplateMap = preprocessor.getTableGeneTemplates(1000, 10000);
 
         TableGeneTemplate template = tableGeneTemplateMap.entrySet().iterator().next().getValue();
-        ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(".//data//template"));
+        ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream("src/data/template"));
         oos.writeObject(template);
         oos.close();
-        ObjectInputStream ois = new ObjectInputStream(new FileInputStream(".//data//template"));
+        ObjectInputStream ois = new ObjectInputStream(new FileInputStream("src/data/template"));
         TableGeneTemplate template2 = (TableGeneTemplate)ois.readObject();
         ois.close();
         System.out.println("-----------------------");

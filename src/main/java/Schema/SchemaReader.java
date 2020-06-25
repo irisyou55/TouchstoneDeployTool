@@ -12,6 +12,10 @@ import java.util.*;
 public class SchemaReader {
     private Logger logger = null;
 
+    public SchemaReader() {
+
+    }
+
     public static void main(String[] args) {
         PropertyConfigurator.configure("src/test/lib/log4j.properties");
         SchemaReader schemaReader = new SchemaReader();

@@ -2,6 +2,7 @@ package ConstraintChains;
 
 import org.apache.log4j.Logger;
 import org.apache.log4j.PropertyConfigurator;
+import run.RunController;
 
 import java.io.BufferedReader;
 import java.io.FileInputStream;
@@ -10,8 +11,14 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class ConstraintChainReader {
+
     private Logger logger = null;
 
+    public ConstraintChainReader() {
+        logger = Logger.getLogger(RunController.class);
+    }
+
+    // test
     public static void main(String[] args) {
         PropertyConfigurator.configure("src/test/lib/log4j.properties");
         ConstraintChainReader constraintChainsReader = new ConstraintChainReader();
@@ -24,13 +31,15 @@ public class ConstraintChainReader {
 
         String inputLine = null;
         try (BufferedReader br = new BufferedReader(new InputStreamReader(new
-                FileInputStream(cardinalityConstraintsInput)))){
+                FileInputStream(cardinalityConstraintsInput)))) {
+            // mark the basic filter operation
             int id = 0;
             while ((inputLine = br.readLine()) != null) {
+                // skip the blank lines and comments
                 if (inputLine.matches("[\\s]*") || inputLine.matches("[ ]*##[\\s\\S]*")) {
                     continue;
                 }
-
+                // convert the input line to lower case and remove the spaces and tabs
                 inputLine = inputLine.toLowerCase();
                 inputLine = inputLine.replaceAll("[ \\t]+", "");
 
@@ -42,21 +51,20 @@ public class ConstraintChainReader {
                     chainInfoArr[i] = chainInfoArr[i].substring(1, chainInfoArr[i].length() - 1);
                     String[] nodeInfoArr = chainInfoArr[i].split(",");
 
+                    // filter node
                     if (nodeInfoArr[0].equals("0") && nodeInfoArr.length == 3) {
                         float probability = Float.parseFloat(nodeInfoArr[2]);
                         String[] filterInfoArr = nodeInfoArr[1].split("#");
                         int logicalRelation = -1;
                         FilterOperation[] filterOperations = null;
-
+                        // there are multiple basic filter operation in this filter node
                         if (filterInfoArr.length != 1) {
                             String logicalRelationStr = filterInfoArr[filterInfoArr.length - 1];
                             if (logicalRelationStr.equals("and")) {
                                 logicalRelation = 0;
-                            }
-                            else if (logicalRelationStr.equals("or")) {
+                            } else if (logicalRelationStr.equals("or")) {
                                 logicalRelation = 1;
-                            }
-                            else {
+                            } else {
                                 logger.error("\n\tUnsupported logical relation: " + logicalRelationStr
                                         + ", " + chainInfoArr[i]);
                                 System.exit(0);
@@ -67,15 +75,16 @@ public class ConstraintChainReader {
                             for (int j = 0; j < filterInfoArr.length - 1; j++) {
                                 filterOperations[j] = newFilterOperation(id++, filterInfoArr[j], filterOperationProbability);
                             }
-                        }else { // only one basic filter operation
+                        } else { // only one basic filter operation
                             filterOperations = new FilterOperation[1];
                             filterOperations[0] = newFilterOperation(id++, filterInfoArr[0], probability);
                         }
                         Filter filter = new Filter(filterOperations, logicalRelation, probability);
                         CCNode node = new CCNode(0, filter);
                         nodes.add(node);
-                    }
-                    if (nodeInfoArr[0].equals("1") && nodeInfoArr.length >= 4 && nodeInfoArr.length % 2 == 0) {
+
+                        // PKJoin node
+                    } else if (nodeInfoArr[0].equals("1") && nodeInfoArr.length >= 4 && nodeInfoArr.length % 2 == 0) {
                         String[] primaryKeys = nodeInfoArr[1].split("#");
                         // add the prefix of table name
                         for (int j = 0; j < primaryKeys.length; j++) {
@@ -90,8 +99,9 @@ public class ConstraintChainReader {
                         PKJoin pkJoin = new PKJoin(primaryKeys, canJoinNum, cantJoinNum);
                         CCNode node = new CCNode(1, pkJoin);
                         nodes.add(node);
-                    }
-                    else if(nodeInfoArr[0].equals("2") && nodeInfoArr.length == 6) {
+
+                        // FKJoin node
+                    } else if(nodeInfoArr[0].equals("2") && nodeInfoArr.length == 6) {
                         String[] foreignKeys = nodeInfoArr[1].split("#");
                         float probability = Float.parseFloat(nodeInfoArr[2]);
                         String[] primakryKeys = nodeInfoArr[3].split("#");
@@ -100,15 +110,15 @@ public class ConstraintChainReader {
                         FKJoin fkJoin = new FKJoin(foreignKeys, probability, primakryKeys, canJoinNum, cantJoinNum);
                         CCNode node = new CCNode(2, fkJoin);
                         nodes.add(node);
-                    }
-                    else {
-//                        logger.error("\n\tUnable to parse the constraint chain information: " + chainInfoArr[i]);
+
+                    } else {
+                        logger.error("\n\tUnable to parse the constraint chain information: " + chainInfoArr[i]);
                         System.exit(0);
                     }
                 }
                 constraintChains.add(new ConstraintChain(tableName, nodes));
             }
-        }catch (Exception e) {
+        } catch (Exception e) {
             System.out.println("\n\tError input line: " + inputLine);
             e.printStackTrace();
             System.exit(0);
@@ -117,6 +127,7 @@ public class ConstraintChainReader {
         return constraintChains;
     }
 
+    // assume that the probability of each basic filter operation is the same
     private float getFilterOperationProbability(int logicalRelation, int size, float probability) {
         if (logicalRelation == 0) {
             return (float)Math.pow(probability, (double)1/size);
@@ -125,6 +136,7 @@ public class ConstraintChainReader {
         }
     }
 
+    // <> -> =, not like -> like, not in -> in
     private FilterOperation newFilterOperation(int id, String filterOperationInfo, float probability) {
         String[] arr = filterOperationInfo.split("@");
         if (arr[1].equals("<>")) {
@@ -139,6 +151,4 @@ public class ConstraintChainReader {
         }
         return new FilterOperation(id, arr[0], arr[1], probability);
     }
-
-
 }

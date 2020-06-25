@@ -1,5 +1,8 @@
 package Mathematica;
 
+import java.math.BigDecimal;
+import java.util.List;
+
 import DataType.TSDataTypeInfo;
 import DataType.TSInteger;
 import Schema.Attribute;
@@ -8,23 +11,25 @@ import org.apache.log4j.Logger;
 import com.wolfram.jlink.KernelLink;
 import com.wolfram.jlink.MathLinkException;
 import com.wolfram.jlink.MathLinkFactory;
+import run.RunController;
 
-import java.math.BigDecimal;
-import java.util.List;
 
 public class Mathematica {
+    // the interaction interface between Mathematica and Java (JLink)
     private KernelLink ml = null;
     private Logger logger = null;
 
+    // initialize KernelLink ml
     public Mathematica() {
         try {
             ml = MathLinkFactory.createKernelLink("-linkmode launch -linkname "
-                    + "'C:\\Program Files\\Wolfram Research\\Mathematica\\10.0\\MathKernel.exe'");
+                    + "'/Applications/Mathematica.app/Contents/MacOS/MathKernel'");
             // empty the computing environment
             ml.discardAnswer();
         } catch (MathLinkException e) {
             e.printStackTrace();
         }
+        logger = Logger.getLogger(RunController.class);
     }
 
     public double getMostValue(String expression, List<String> attrNames, List<Attribute> attributes,
@@ -36,8 +41,7 @@ public class Mathematica {
         }
         if (isMax) {
             sb.append("FindMaxValue[{" + expression + ", ");
-        }
-        else {
+        } else {
             sb.append("FindMinValue[{" + expression + ", ");
         }
         for (int i = 0; i < size; i++) {
@@ -74,6 +78,7 @@ public class Mathematica {
         }
         return Double.MIN_VALUE;
     }
+
     public double integrate(String expression, String operator, List<String> attrNames, List<Attribute> attributes,
                             double predictedValue, List<String> childrensConstraints) {
         StringBuilder sb = new StringBuilder();

@@ -8,30 +8,38 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import ConstraintChains.NonEquiJoinConstraint;
 import org.apache.log4j.Logger;
 import org.apache.log4j.PropertyConfigurator;
+import run.RunController;
+
 
 public class NonEquiJoinConstraintsReader {
 
+    Logger logger = Logger.getLogger(RunController.class);
+
+    // test
     public static void main(String[] args) {
-        PropertyConfigurator.configure(".//test//lib//log4j.properties");
+        PropertyConfigurator.configure("src/test/lib/log4j.properties");
         NonEquiJoinConstraintsReader nonEquiJoinConstraintsReader = new NonEquiJoinConstraintsReader();
-        nonEquiJoinConstraintsReader.read(".//test//input//non_equi_join_test.txt");
-        nonEquiJoinConstraintsReader.read(".//test//input//function_test_non_equi_join_0.txt");
+        nonEquiJoinConstraintsReader.read("src/test/input/non_equi_join_test.txt");
+        nonEquiJoinConstraintsReader.read("src/test/input/function_test_non_equi_join_0.txt");
     }
 
+    // the definition of child nodes should be precede the definition of parent node
     public List<NonEquiJoinConstraint> read(String nonEquiJoinConstraintsInput) {
         List<NonEquiJoinConstraint> nonEquiJoinConstraints = new ArrayList<NonEquiJoinConstraint>();
         Map<Integer, NonEquiJoinConstraint> nonEquiJoinConstraintMap = new HashMap<Integer, NonEquiJoinConstraint>();
 
         String inputLine = null;
         try (BufferedReader br = new BufferedReader(new InputStreamReader(new
-                FileInputStream(nonEquiJoinConstraintsInput)))){
+                FileInputStream(nonEquiJoinConstraintsInput)))) {
             while ((inputLine = br.readLine()) != null) {
+                // skip the blank lines and comments
                 if (inputLine.matches("[\\s]*") || inputLine.matches("[ ]*##[\\s\\S]*")) {
                     continue;
                 }
-
+                // convert the input line to lower case and remove the spaces and tabs
                 inputLine = inputLine.toLowerCase();
                 inputLine = inputLine.replaceAll("[ \\t]+", "");
 
@@ -46,22 +54,22 @@ public class NonEquiJoinConstraintsReader {
                             operator, probability, inputDataSize);
                     nonEquiJoinConstraints.add(nonEquiJoinConstraint);
                     nonEquiJoinConstraintMap.put(id, nonEquiJoinConstraint);
-                }
-                else if (inputLine.matches("[ ]*r[ ]*\\[[\\s\\S^\\]]+\\][ ]*") && arr.length == 2) {
+                } else if (inputLine.matches("[ ]*r[ ]*\\[[\\s\\S^\\]]+\\][ ]*") && arr.length == 2) {
                     int id1 = Integer.parseInt(arr[0].substring(arr[0].indexOf('[') + 1));
                     int id2 = Integer.parseInt(arr[1].substring(0, arr[1].indexOf(']')));
                     nonEquiJoinConstraintMap.get(id1).getChildren().add(id2);
                     nonEquiJoinConstraintMap.get(id1).getChildren().addAll(nonEquiJoinConstraintMap.get(id2).getChildren());
-                }
-                else {
+                } else {
+                    logger.error("\n\tUnable to parse the non-equi join constraint information: " + inputLine);
                     System.exit(0);
                 }
             }
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
+            logger.error("\n\tError input line: " + inputLine);
             e.printStackTrace();
             System.exit(0);
         }
+        logger.debug("\nThe non-equi join constraints: " + nonEquiJoinConstraints);
         return nonEquiJoinConstraints;
     }
 
