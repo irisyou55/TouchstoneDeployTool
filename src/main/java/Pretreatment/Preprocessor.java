@@ -25,7 +25,6 @@ import Schema.SchemaReader;
 import Schema.Table;
 import org.apache.log4j.Logger;
 import org.apache.log4j.PropertyConfigurator;
-import run.RunController;
 
 
 // main functions:
@@ -43,7 +42,7 @@ public class Preprocessor {
         this.tables = tables;
         this.constraintChains = constraintChains;
         this.parameters = parameters;
-        logger = Logger.getLogger(RunController.class);
+        logger = Logger.getLogger(QueryInstantiator.class);
     }
 
     // get the partial order among tables according to the foreign key constraints

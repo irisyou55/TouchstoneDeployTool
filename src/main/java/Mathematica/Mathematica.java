@@ -11,7 +11,7 @@ import org.apache.log4j.Logger;
 import com.wolfram.jlink.KernelLink;
 import com.wolfram.jlink.MathLinkException;
 import com.wolfram.jlink.MathLinkFactory;
-import run.RunController;
+import run.QueryInstantiator;
 
 
 public class Mathematica {
@@ -29,7 +29,7 @@ public class Mathematica {
         } catch (MathLinkException e) {
             e.printStackTrace();
         }
-        logger = Logger.getLogger(RunController.class);
+        logger = Logger.getLogger(QueryInstantiator.class);
     }
 
     public double getMostValue(String expression, List<String> attrNames, List<Attribute> attributes,

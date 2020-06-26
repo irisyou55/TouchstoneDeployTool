@@ -20,7 +20,6 @@ import Schema.Table;
 import org.apache.log4j.Logger;
 import org.apache.log4j.PropertyConfigurator;
 import run.Configurations;
-import run.RunController;
 
 
 // the controller of the distributed data generator (Touchstone)
@@ -45,7 +44,7 @@ public class Controller {
         this.tablePartialOrder = tablePartialOrder;
         this.tableGeneTemplateMap = tableGeneTemplateMap;
         this.configurations = configurations;
-        logger = Logger.getLogger(RunController.class);
+        logger = Logger.getLogger(QueryInstantiator.class);
     }
 
     // the clients are linked with the servers of data generators
@@ -207,7 +206,7 @@ public class Controller {
 		Preprocessor preprocessor = new Preprocessor(tables, constraintChains, parameters);
 		List<String> tablePartialOrder = preprocessor.getPartialOrder();
 		Map<String, TableGeneTemplate> tableGeneTemplateMap = preprocessor.getTableGeneTemplates(1000, 10000);
-		Configurations configurations = new Configurations("src/test/touchstone2.conf");
+		Configurations configurations = new Configurations("src/test/touchstone.conf");
 		Controller controller = new Controller(tablePartialOrder, tableGeneTemplateMap, configurations);
 		controller.setUpNetworkThreads();
 		controller.geneData();

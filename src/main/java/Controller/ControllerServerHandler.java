@@ -7,14 +7,14 @@ import org.apache.log4j.Logger;
 
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
-import run.RunController;
+import run.QueryInstantiator;
 
 public class ControllerServerHandler extends ChannelInboundHandlerAdapter {
 
     private Logger logger = null;
 
     public ControllerServerHandler() {
-        logger = Logger.getLogger(RunController.class);
+        logger = Logger.getLogger(QueryInstantiator.class);
     }
 
     @Override

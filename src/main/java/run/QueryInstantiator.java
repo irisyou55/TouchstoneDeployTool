@@ -59,7 +59,7 @@ public class QueryInstantiator {
     }
 
     private void init() {
-        logger = Logger.getLogger(RunController.class);
+        logger = Logger.getLogger(QueryInstantiator.class);
         parameters = new ArrayList<Parameter>();
         if (constraintChains == null) {
             constraintChains = Collections.emptyList();

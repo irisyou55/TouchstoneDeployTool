@@ -10,10 +10,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import DataType.TSDataTypeInfo;
 import DataType.TSInteger;
 import Mathematica.Mathematica;
-import QueryInstantiation.Parameter;
 import Schema.Attribute;
 import org.apache.log4j.Logger;
-import run.RunController;
+import run.QueryInstantiator;
 
 
 public class ComputingThreadPool {
@@ -107,7 +106,7 @@ class ComputingThread implements Runnable {
 
     private void init() {
         inactive = true;
-        logger = Logger.getLogger(RunController.class);
+        logger = Logger.getLogger(QueryInstantiator.class);
     }
 
     public boolean isInactive() {

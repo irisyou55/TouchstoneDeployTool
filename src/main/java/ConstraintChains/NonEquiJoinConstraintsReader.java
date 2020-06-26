@@ -8,22 +8,21 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import ConstraintChains.NonEquiJoinConstraint;
 import org.apache.log4j.Logger;
 import org.apache.log4j.PropertyConfigurator;
-import run.RunController;
+import run.QueryInstantiator;
 
 
 public class NonEquiJoinConstraintsReader {
 
-    Logger logger = Logger.getLogger(RunController.class);
+    Logger logger = Logger.getLogger(QueryInstantiator.class);
 
     // test
     public static void main(String[] args) {
         PropertyConfigurator.configure("src/test/lib/log4j.properties");
         NonEquiJoinConstraintsReader nonEquiJoinConstraintsReader = new NonEquiJoinConstraintsReader();
         nonEquiJoinConstraintsReader.read("src/test/input/non_equi_join_test.txt");
-        nonEquiJoinConstraintsReader.read("src/test/input/function_test_non_equi_join_0.txt");
+    //    nonEquiJoinConstraintsReader.read("src/test/input/function_test_non_equi_join_0.txt");
     }
 
     // the definition of child nodes should be precede the definition of parent node

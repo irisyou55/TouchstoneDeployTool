@@ -2,7 +2,7 @@ package ConstraintChains;
 
 import org.apache.log4j.Logger;
 import org.apache.log4j.PropertyConfigurator;
-import run.RunController;
+import run.QueryInstantiator;
 
 import java.io.BufferedReader;
 import java.io.FileInputStream;
@@ -15,7 +15,7 @@ public class ConstraintChainReader {
     private Logger logger = null;
 
     public ConstraintChainReader() {
-        logger = Logger.getLogger(RunController.class);
+        logger = Logger.getLogger(QueryInstantiator.class);
     }
 
     // test
