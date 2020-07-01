@@ -3,22 +3,20 @@ package Controller;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 
-import org.apache.log4j.Logger;
-import run.QueryInstantiator;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
 public class ControllerClientHandler extends ChannelInboundHandlerAdapter {
 
-    private Logger logger = null;
+    private static final Logger LOGGER = LoggerFactory.getLogger(ControllerClientHandler.class);
 
-    public ControllerClientHandler() {
-        logger = Logger.getLogger(QueryInstantiator.class);
-    }
 
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
         String response = (String)msg;
-        logger.info("\n\t" + response);
+        LOGGER.info("\n\t" + response);
     }
 
     @Override

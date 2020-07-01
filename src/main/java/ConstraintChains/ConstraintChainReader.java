@@ -1,8 +1,8 @@
 package ConstraintChains;
 
-import org.apache.log4j.Logger;
-import org.apache.log4j.PropertyConfigurator;
-import run.QueryInstantiator;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.BufferedReader;
 import java.io.FileInputStream;
@@ -12,15 +12,10 @@ import java.util.List;
 
 public class ConstraintChainReader {
 
-    private Logger logger = null;
-
-    public ConstraintChainReader() {
-        logger = Logger.getLogger(QueryInstantiator.class);
-    }
+    private static final Logger LOGGER = LoggerFactory.getLogger(ConstraintChainReader.class);
 
     // test
     public static void main(String[] args) {
-        PropertyConfigurator.configure("src/test/lib/log4j.properties");
         ConstraintChainReader constraintChainsReader = new ConstraintChainReader();
         constraintChainsReader.read("src/test/input/tpch_cardinality_constraints_sf_1.txt");
         constraintChainsReader.read("src/test/input/function_test_cardinality_constraints_0.txt");
@@ -65,7 +60,7 @@ public class ConstraintChainReader {
                             } else if (logicalRelationStr.equals("or")) {
                                 logicalRelation = 1;
                             } else {
-                                logger.error("\n\tUnsupported logical relation: " + logicalRelationStr
+                                LOGGER.error("\n\tUnsupported logical relation: " + logicalRelationStr
                                         + ", " + chainInfoArr[i]);
                                 System.exit(0);
                             }
@@ -112,7 +107,7 @@ public class ConstraintChainReader {
                         nodes.add(node);
 
                     } else {
-                        logger.error("\n\tUnable to parse the constraint chain information: " + chainInfoArr[i]);
+                        LOGGER.error("\n\tUnable to parse the constraint chain information: " + chainInfoArr[i]);
                         System.exit(0);
                     }
                 }
@@ -123,7 +118,7 @@ public class ConstraintChainReader {
             e.printStackTrace();
             System.exit(0);
         }
-        logger.debug("\nThe cardinality constraint chains: " + constraintChains);
+        LOGGER.debug("\nThe cardinality constraint chains: " + constraintChains);
         return constraintChains;
     }
 

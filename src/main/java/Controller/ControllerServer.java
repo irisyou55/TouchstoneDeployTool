@@ -11,12 +11,17 @@ import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.handler.codec.serialization.ClassResolvers;
 import io.netty.handler.codec.serialization.ObjectDecoder;
 import io.netty.handler.codec.serialization.ObjectEncoder;
-import org.apache.log4j.Logger;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import run.QueryInstantiator;
+
 
 public class ControllerServer implements Runnable {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(ControllerServer.class);
+
     private int port;
-    private Logger logger = null;
 
     public ControllerServer(int port) {
         this.port = port;

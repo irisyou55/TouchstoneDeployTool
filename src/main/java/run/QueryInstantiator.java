@@ -17,12 +17,13 @@ import QueryInstantiation.Parameter;
 import Schema.Attribute;
 import Schema.SchemaReader;
 import Schema.Table;
-import org.apache.log4j.Logger;
-import org.apache.log4j.PropertyConfigurator;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
 public class QueryInstantiator {
-
+    private static final Logger LOGGER = LoggerFactory.getLogger(QueryInstantiator.class);
     // input data
     private List<Table> tables = null;
     private List<ConstraintChain> constraintChains = null;
@@ -31,7 +32,6 @@ public class QueryInstantiator {
     // instantiated parameters
     private List<Parameter> parameters = null;
 
-    private Logger logger = null;
     private int maxIterations;
     private double requiredGlobalRelativeError;
     private ComputingThreadPool computingThreadPool = null;
@@ -55,11 +55,9 @@ public class QueryInstantiator {
         this.requiredGlobalRelativeError = requiredGlobalRelativeError;
         this.computingThreadPool = computingThreadPool;
         init();
-
     }
 
     private void init() {
-        logger = Logger.getLogger(QueryInstantiator.class);
         parameters = new ArrayList<Parameter>();
         if (constraintChains == null) {
             constraintChains = Collections.emptyList();
@@ -149,7 +147,7 @@ public class QueryInstantiator {
             }
             double globalRelativeError = (double)deviationSum / cardinalitySum;
 
-            logger.info("\nquery instantiation iterations: " + i + "\ninstantiated parameters: " + parameters +
+            LOGGER.info("\nquery instantiation iterations: " + i + "\ninstantiated parameters: " + parameters +
                     "\nglobal relative error: " + globalRelativeError);
 
             if (globalRelativeError < bestGlobalRelativeError) {
@@ -163,8 +161,8 @@ public class QueryInstantiator {
         }
 
         long endTime = System.currentTimeMillis();
-        logger.info("\n\tTime of query instantiation: " + (endTime - startTime) + "ms");
-        logger.info("\nFinal instantiated parameters: " + bestParameters +
+        LOGGER.info("\n\tTime of query instantiation: " + (endTime - startTime) + "ms");
+        LOGGER.info("\nFinal instantiated parameters: " + bestParameters +
                 "\nFinal global relative error: " + bestGlobalRelativeError);
     }
 
@@ -266,7 +264,7 @@ public class QueryInstantiator {
                 }
 
                 if (values.size() == 0) {
-                    logger.error("\n\tCan not handle the basic filter operation: " + equaFilterOperations.get(i));
+                    LOGGER.error("\n\tCan not handle the basic filter operation: " + equaFilterOperations.get(i));
                     System.exit(0);
                 } else {
                     parameters.add(new Parameter(id, values, cardinality, 0));
@@ -285,8 +283,8 @@ public class QueryInstantiator {
         }
 
         Collections.sort(parameters);
-        logger.debug("\nThe parameters after handling the equality filter operations: " + parameters);
-        logger.debug("\nThe schema after handling the equality filter operations: " + tables);
+        LOGGER.debug("\nThe parameters after handling the equality filter operations: " + parameters);
+        LOGGER.debug("\nThe schema after handling the equality filter operations: " + tables);
     }
 
     private void instantiateParameters() {
@@ -373,7 +371,7 @@ public class QueryInstantiator {
 
     // test
     public static void main(String[] args) {
-        PropertyConfigurator.configure("src/test/lib/log4j.properties");
+
         System.setProperty("com.wolfram.jlink.libdir",
                 "/Applications/Mathematica.app/Contents/SystemFiles/Links/JLink");
 

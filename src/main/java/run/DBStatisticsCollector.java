@@ -12,12 +12,12 @@ import DataType.*;
 import Schema.Attribute;
 import Schema.SchemaReader;
 import Schema.Table;
-import org.apache.log4j.Logger;
-import org.apache.log4j.PropertyConfigurator;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
 public class DBStatisticsCollector {
-
+	private static final Logger LOGGER = LoggerFactory.getLogger(DBStatisticsCollector.class);
 	// target database (original database)
 	private String ip = null;
 	private String port = null;
@@ -26,8 +26,6 @@ public class DBStatisticsCollector {
 	private String passwd = null;
 
 	private List<Table> tables = null;
-
-	private Logger logger = Logger.getLogger(DBStatisticsCollector.class);
 
 	public DBStatisticsCollector(String ip, String port, String dbName, String userName, String passwd,
 			List<Table> tables) {
@@ -143,7 +141,7 @@ public class DBStatisticsCollector {
 		} catch (SQLException e) {
 			e.printStackTrace();
 		}
-		logger.info("All table information after filling the data characteristics:" + tables);
+		LOGGER.info("All table information after filling the data characteristics:" + tables);
 	}
 
 	public List<Table> getTables() {
@@ -151,7 +149,7 @@ public class DBStatisticsCollector {
 	}
 
 	public static void main(String[] args) {
-		PropertyConfigurator.configure("src/test/lib/log4j.properties");
+
 		SchemaReader schemaReader = new SchemaReader();
 		List<Table> tables = schemaReader.read("src/test/input/tpch_schema_sf_1.txt");
 

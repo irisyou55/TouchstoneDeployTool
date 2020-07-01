@@ -1,8 +1,10 @@
 package Schema;
 
 import DataType.*;
-import org.apache.log4j.Logger;
-import org.apache.log4j.PropertyConfigurator;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import run.QueryInstantiator;
 
 import java.io.BufferedReader;
 import java.io.FileInputStream;
@@ -10,14 +12,14 @@ import java.io.InputStreamReader;
 import java.util.*;
 
 public class SchemaReader {
-    private Logger logger = null;
+    private static final Logger LOGGER = LoggerFactory.getLogger(QueryInstantiator.class);
 
     public SchemaReader() {
 
     }
 
     public static void main(String[] args) {
-        PropertyConfigurator.configure("src/test/lib/log4j.properties");
+
         SchemaReader schemaReader = new SchemaReader();
         schemaReader.read("src/test/input/ssb_schema_sf_1_D.txt");
     }
@@ -43,13 +45,13 @@ public class SchemaReader {
                     dataInfos.add(inputLine);
                 }
                 else {
-                    logger.error("\n\tUnrecognized input information: " + inputLine);
+                    LOGGER.error("\n\tUnrecognized input information: " + inputLine);
                     System.exit(0);
                 }
             }
         }
         catch (Exception e) {
-            logger.error("\n\tError input line: " + inputLine);
+            LOGGER.error("\n\tError input line: " + inputLine);
             e.printStackTrace();
             System.exit(0);
         }
@@ -98,7 +100,7 @@ public class SchemaReader {
                 if (!tableInfoArr[j].matches("p\\([\\s\\S^\\]]+\\)") &&
                         !tableInfoArr[j].matches("f\\([\\s\\S^\\]]+\\)")) {
                     if (tableInfoArr[j].split(",").length != 2) {
-                        logger.error("\n\tExpect to have a comma! " + "Error input: " + tableInfoArr[j]);
+                        LOGGER.error("\n\tExpect to have a comma! " + "Error input: " + tableInfoArr[j]);
                     }
                     String attrName = tableInfoArr[j].split(",")[0];
                     String dataType = tableInfoArr[j].split(",")[1];
@@ -107,7 +109,7 @@ public class SchemaReader {
                             continue;
                         }
                         else {
-                            logger.error("\n\tThe data type of primary key and foreign key must be integer! "
+                            LOGGER.error("\n\tThe data type of primary key and foreign key must be integer! "
                                     + "Error input: " + tableInfoArr[j]);
                             System.exit(0);
                         }
@@ -117,7 +119,7 @@ public class SchemaReader {
                     try {
                         dataTypeInfo = newTSDataType(dataType, dataInfo);
                     } catch (Exception e) {
-                        logger.error("\n\tThe basic data characteristic information can not be recognized! "
+                        LOGGER.error("\n\tThe basic data characteristic information can not be recognized! "
                                 + "Error input: " + tableInfoArr[j] + ", " + dataInfo);
                         e.printStackTrace();
                         System.exit(0);
@@ -195,7 +197,7 @@ public class SchemaReader {
                 }
                 break;
             default:
-                logger.error("\n\tUnrecognized data type: " + dataType);
+                LOGGER.error("\n\tUnrecognized data type: " + dataType);
         }
         return dataTypeInfo;
     }

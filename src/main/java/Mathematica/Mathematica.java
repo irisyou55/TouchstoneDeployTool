@@ -6,7 +6,8 @@ import java.util.List;
 import DataType.TSDataTypeInfo;
 import DataType.TSInteger;
 import Schema.Attribute;
-import org.apache.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.wolfram.jlink.KernelLink;
 import com.wolfram.jlink.MathLinkException;
@@ -17,7 +18,7 @@ import run.QueryInstantiator;
 public class Mathematica {
     // the interaction interface between Mathematica and Java (JLink)
     private KernelLink ml = null;
-    private Logger logger = null;
+    private static final Logger LOGGER = LoggerFactory.getLogger(Mathematica.class);
 
     // initialize KernelLink ml
     public Mathematica() {
@@ -29,7 +30,6 @@ public class Mathematica {
         } catch (MathLinkException e) {
             e.printStackTrace();
         }
-        logger = Logger.getLogger(QueryInstantiator.class);
     }
 
     public double getMostValue(String expression, List<String> attrNames, List<Attribute> attributes,
@@ -66,7 +66,7 @@ public class Mathematica {
             }
         }
         sb.append("}]");
-        logger.debug("\n" + sb.toString());
+        LOGGER.debug("\n" + sb.toString());
 
         try {
             ml.evaluate(sb.toString());
@@ -122,7 +122,7 @@ public class Mathematica {
             sb.append(", {" + attrNames.get(i) + ", " + minValue.toPlainString() + ", " + maxValue.toPlainString() + "}");
         }
         sb.append("]");
-        logger.debug("\n" + sb.toString());
+        LOGGER.debug("\n" + sb.toString());
 
         try {
             ml.evaluate(sb.toString());

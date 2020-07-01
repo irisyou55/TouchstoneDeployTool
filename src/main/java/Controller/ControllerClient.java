@@ -12,14 +12,17 @@ import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.codec.serialization.ClassResolvers;
 import io.netty.handler.codec.serialization.ObjectDecoder;
 import io.netty.handler.codec.serialization.ObjectEncoder;
-import org.apache.log4j.Logger;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import run.QueryInstantiator;
+
 
 public class ControllerClient implements Runnable {
+    private static final Logger LOGGER = LoggerFactory.getLogger(ControllerClient.class);
 
     private String host = null;
     private int port;
-
-    private Logger logger = null;
 
     private Channel channel = null;
 
@@ -54,10 +57,10 @@ public class ControllerClient implements Runnable {
                 channel = bootstrap.connect(host, port).sync().channel();
                 break;
             } catch (Exception e) {
-                logger.error("\n\tController client startup fail!");
+                LOGGER.error("\n\tController client startup fail!");
             }
         }
-        logger.debug("\n\tController client startup successful!");
+        LOGGER.debug("\n\tController client startup successful!");
     }
     public void send(TableGeneTemplate template) {
         channel.writeAndFlush(template);

@@ -8,18 +8,17 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.log4j.Logger;
-import org.apache.log4j.PropertyConfigurator;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import run.QueryInstantiator;
 
 
 public class NonEquiJoinConstraintsReader {
 
-    Logger logger = Logger.getLogger(QueryInstantiator.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(NonEquiJoinConstraintsReader.class);
 
     // test
     public static void main(String[] args) {
-        PropertyConfigurator.configure("src/test/lib/log4j.properties");
         NonEquiJoinConstraintsReader nonEquiJoinConstraintsReader = new NonEquiJoinConstraintsReader();
         nonEquiJoinConstraintsReader.read("src/test/input/non_equi_join_test.txt");
     //    nonEquiJoinConstraintsReader.read("src/test/input/function_test_non_equi_join_0.txt");
@@ -59,16 +58,16 @@ public class NonEquiJoinConstraintsReader {
                     nonEquiJoinConstraintMap.get(id1).getChildren().add(id2);
                     nonEquiJoinConstraintMap.get(id1).getChildren().addAll(nonEquiJoinConstraintMap.get(id2).getChildren());
                 } else {
-                    logger.error("\n\tUnable to parse the non-equi join constraint information: " + inputLine);
+                    LOGGER.error("\n\tUnable to parse the non-equi join constraint information: " + inputLine);
                     System.exit(0);
                 }
             }
         } catch (Exception e) {
-            logger.error("\n\tError input line: " + inputLine);
+            LOGGER.error("\n\tError input line: " + inputLine);
             e.printStackTrace();
             System.exit(0);
         }
-        logger.debug("\nThe non-equi join constraints: " + nonEquiJoinConstraints);
+        LOGGER.debug("\nThe non-equi join constraints: " + nonEquiJoinConstraints);
         return nonEquiJoinConstraints;
     }
 

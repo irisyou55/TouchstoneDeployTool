@@ -18,13 +18,13 @@ import java.util.stream.Collectors;
 import ConstraintChains.*;
 import QueryInstantiation.ComputingThreadPool;
 import QueryInstantiation.Parameter;
+import org.slf4j.LoggerFactory;
 import run.QueryInstantiator;
 import Schema.Attribute;
 import Schema.ForeignKey;
 import Schema.SchemaReader;
 import Schema.Table;
-import org.apache.log4j.Logger;
-import org.apache.log4j.PropertyConfigurator;
+import org.slf4j.Logger;
 
 
 // main functions:
@@ -32,17 +32,17 @@ import org.apache.log4j.PropertyConfigurator;
 // 2. get the generation templates of tables
 public class Preprocessor {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(Preprocessor.class);
+
     private List<Table> tables = null;
     private List<ConstraintChain> constraintChains = null;
     private List<Parameter> parameters = null;
-    private Logger logger = null;
 
     public Preprocessor(List<Table> tables, List<ConstraintChain> constraintChains, List<Parameter> parameters) {
         super();
         this.tables = tables;
         this.constraintChains = constraintChains;
         this.parameters = parameters;
-        logger = Logger.getLogger(QueryInstantiator.class);
     }
 
     // get the partial order among tables according to the foreign key constraints
@@ -84,7 +84,7 @@ public class Preprocessor {
             iterator = tableDependencyInfo.entrySet().iterator();
         }
 
-        logger.debug("\nThe partial order of tables: \n\t" + partialOrder);
+        LOGGER.debug("\nThe partial order of tables: \n\t" + partialOrder);
         return partialOrder.stream().collect(Collectors.toList());
     }
 
@@ -187,13 +187,12 @@ public class Preprocessor {
             tableGeneTemplateMap.put(tableName, tableGeneTemplate);
         }
 
-        logger.debug("\nThe generation template map of tables: \n" + tableGeneTemplateMap);
+        LOGGER.debug("\nThe generation template map of tables: \n" + tableGeneTemplateMap);
         return tableGeneTemplateMap;
     }
 
     // test
     public static void main(String[] args) throws Exception {
-        PropertyConfigurator.configure("src/test/lib/log4j.properties");
         System.setProperty("com.wolfram.jlink.libdir",
                 "/Applications/Mathematica.app/Contents/SystemFiles/Links/JLink");
 

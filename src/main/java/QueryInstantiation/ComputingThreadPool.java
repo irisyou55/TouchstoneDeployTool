@@ -11,11 +11,14 @@ import DataType.TSDataTypeInfo;
 import DataType.TSInteger;
 import Mathematica.Mathematica;
 import Schema.Attribute;
-import org.apache.log4j.Logger;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import run.QueryInstantiator;
 
 
 public class ComputingThreadPool {
+    private static final Logger LOGGER = LoggerFactory.getLogger(ComputingThreadPool.class);
 
     private int threadNum;
     private Map<Integer, Parameter> parameterMap = null;
@@ -85,6 +88,7 @@ public class ComputingThreadPool {
 }
 
 class ComputingThread implements Runnable {
+    private static final Logger LOGGER = LoggerFactory.getLogger(ComputingThread.class);
 
     private ArrayBlockingQueue<ComputingTask> tasksQueue = null;
     private Map<Integer, Parameter> parameterMap = null;
@@ -93,7 +97,7 @@ class ComputingThread implements Runnable {
 
     private Mathematica mathematica = null;
     private boolean inactive;
-    private Logger logger = null;
+
 
     public ComputingThread(ArrayBlockingQueue<ComputingTask> tasksQueue, Map<Integer, Parameter> parameterMap,
                            int maxIterations, double requiredRelativeError) {
@@ -106,7 +110,6 @@ class ComputingThread implements Runnable {
 
     private void init() {
         inactive = true;
-        logger = Logger.getLogger(QueryInstantiator.class);
     }
 
     public boolean isInactive() {
@@ -215,7 +218,7 @@ class ComputingThread implements Runnable {
         String constraint = task.getExpression() + " " + operator + " " + new BigDecimal(paraValue).toPlainString();
         Parameter parameter = new Parameter(task.getId(), values, cardinality, deviation, task.isBet(), constraint);
 
-        logger.debug("" + task + parameter);
+        LOGGER.debug("" + task + parameter);
         return parameter;
     }
 
@@ -255,7 +258,7 @@ class ComputingThread implements Runnable {
         double bestValue = predictedValue;
         float bestRelativeError = Float.MAX_VALUE;
 
-        logger.debug(task + "\n\tminValue: " + minValue + "\tmaxValue: " + maxValue +
+        LOGGER.debug(task + "\n\tminValue: " + minValue + "\tmaxValue: " + maxValue +
                 "\tmathSpaceSize: " + mathSpaceSize);
 
         // binary search
@@ -264,7 +267,7 @@ class ComputingThread implements Runnable {
                     predictedValue, childrensConstraints);
             float mathProbability = (float)(inteSpaceSize / mathSpaceSize);
             float relativeError = Math.abs(mathProbability - probability);
-            logger.debug("\n\tmathematica iterations: " + i + "\tcurrent probability: " +
+            LOGGER.debug("\n\tmathematica iterations: " + i + "\tcurrent probability: " +
                     mathProbability + "\trelative error: " + relativeError);
 
             if (relativeError < bestRelativeError) {
@@ -291,7 +294,7 @@ class ComputingThread implements Runnable {
         String constraint = task.getExpression() + " " + operator + " " + new BigDecimal(bestValue).toPlainString();
         Parameter parameter = new Parameter(task.getId(), values, cardinality, deviation, task.isBet(), constraint);
 
-        logger.debug(parameter);
+        LOGGER.debug(String.valueOf(parameter));
         return parameter;
     }
 }

@@ -14,11 +14,12 @@ import Pretreatment.Preprocessor;
 import Pretreatment.TableGeneTemplate;
 import QueryInstantiation.ComputingThreadPool;
 import QueryInstantiation.Parameter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import run.QueryInstantiator;
 import Schema.SchemaReader;
 import Schema.Table;
-import org.apache.log4j.Logger;
-import org.apache.log4j.PropertyConfigurator;
+
 import run.Configurations;
 
 
@@ -26,6 +27,7 @@ import run.Configurations;
 // main function: 1. assign the data generation tasks to all data generators,
 //                2. merge the join information of the primary key maintained by data generators
 public class Controller {
+    private static final Logger LOGGER = LoggerFactory.getLogger(Controller.class);
 
     // table names stored in the partial order
     private List<String> tablePartialOrder = null;
@@ -36,15 +38,12 @@ public class Controller {
     // running configurations
     private Configurations configurations = null;
 
-    private Logger logger = null;
-
     public Controller(List<String> tablePartialOrder, Map<String, TableGeneTemplate> tableGeneTemplateMap,
                       Configurations configurations) {
         super();
         this.tablePartialOrder = tablePartialOrder;
         this.tableGeneTemplateMap = tableGeneTemplateMap;
         this.configurations = configurations;
-        logger = Logger.getLogger(QueryInstantiator.class);
     }
 
     // the clients are linked with the servers of data generators
@@ -94,7 +93,7 @@ public class Controller {
                 }
             }
         }
-        logger.info("\n\tThe 'pkReferenceCountMap' (primary key -> reference count) is: " + pkReferenceCountMap);
+        LOGGER.info("\n\tThe 'pkReferenceCountMap' (primary key -> reference count) is: " + pkReferenceCountMap);
 
         // map: primary key (its string representation) -> (combined join statuses -> primary keys list)
         // 'neededPKJoinInfo' -> 'fksJoinInfo'
@@ -106,13 +105,13 @@ public class Controller {
 
         long startTime = System.currentTimeMillis();
 
-        logger.info("\n\tStart generating data!");
+        LOGGER.info("\n\tStart generating data!");
 
         for (int i = 0; i < tablePartialOrder.size(); i++) {
             String tableName = tablePartialOrder.get(i);
             TableGeneTemplate template = tableGeneTemplateMap.get(tableName);
 
-            logger.info("\n\tStart generating table " + tableName + "!");
+            LOGGER.info("\n\tStart generating table " + tableName + "!");
 
             List<String> referencedKeys = template.getReferencedKeys();
             Map<String, Map<Integer, ArrayList<long[]>>> fksJoinInfo =
@@ -127,20 +126,20 @@ public class Controller {
                 }
             }
             template.setFksJoinInfo(fksJoinInfo);
-            logger.info("\n\tThe 'fkJoinInfo' has been set!");
-            logger.info("\n\tThe key set of neededPKJoinInfo is: " + neededPKJoinInfo.keySet());
+            LOGGER.info("\n\tThe 'fkJoinInfo' has been set!");
+            LOGGER.info("\n\tThe key set of neededPKJoinInfo is: " + neededPKJoinInfo.keySet());
 
             // for experiments
-            logger.info("\n\tThe number of constraint chains: " + template.getConstraintChainsNum());
-            logger.info("\n\tThe number of constraints in constraint chains: " + template.getConstraintsNum());
-            logger.info("\n\tThe number of entries in join information table: " + template.getEntriesNum());
+            LOGGER.info("\n\tThe number of constraint chains: " + template.getConstraintChainsNum());
+            LOGGER.info("\n\tThe number of constraints in constraint chains: " + template.getConstraintsNum());
+            LOGGER.info("\n\tThe number of entries in join information table: " + template.getEntriesNum());
 
             countDownLatch = new CountDownLatch(configurations.getDataGeneratorIps().size());
             for (int j = 0; j < clients.size(); j++) {
                 clients.get(j).send(template);
             }
-            logger.info(template);
-            logger.info("\n\tThe template of " + tableName + " has been successfully sent!");
+            LOGGER.info(String.valueOf(template));
+            LOGGER.info("\n\tThe template of " + tableName + " has been successfully sent!");
 
             // wait for all data generators to return the join information of primary key
             try {
@@ -148,19 +147,19 @@ public class Controller {
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
-            logger.info("\n\tThe primary key join information (pkJoinInfo) of all data generators has been received!");
+            LOGGER.info("\n\tThe primary key join information (pkJoinInfo) of all data generators has been received!");
 
-            logger.info("\n\tStart merging 'pkJoinInfoList' ...");
+            LOGGER.info("\n\tStart merging 'pkJoinInfoList' ...");
             neededPKJoinInfo.put(template.getPkStr(),
                     JoinInfoMerger.merge(pkJoinInfoList, configurations.getPkvsMaxSize()));
-            logger.info("\n\tMerge end!");
-            logger.info("\n\tThe key set of neededPKJoinKeyInfo is: " + neededPKJoinInfo.keySet());
+            LOGGER.info("\n\tMerge end!");
+            LOGGER.info("\n\tThe key set of neededPKJoinKeyInfo is: " + neededPKJoinInfo.keySet());
 
             pkJoinInfoList.clear();
         }
 
         long endTime = System.currentTimeMillis();
-        logger.info("\n\tTime of data generation: " + (endTime - startTime) + "ms");
+        LOGGER.info("\n\tTime of data generation: " + (endTime - startTime) + "ms");
     }
 
     private void waitClientsConnected() {
@@ -172,13 +171,13 @@ public class Controller {
                     } catch (InterruptedException e) {
                         e.printStackTrace();
                     }
-                    logger.info("\n\tAll data generators do not startup successful!");
+                    LOGGER.info("\n\tAll data generators do not startup successful!");
                     continue loop;
                 }
             }
             break;
         }
-        logger.info("\n\tAll data generators startup successful!");
+        LOGGER.info("\n\tAll data generators startup successful!");
     }
 
     // it's called by 'ControllerServerHandler' when receiving a 'pkJoinInfo'
@@ -189,7 +188,6 @@ public class Controller {
 
     // test
     public static void main(String[] args) {
-        PropertyConfigurator.configure("src/test/lib/log4j.properties");
         System.setProperty("com.wolfram.jlink.libdir",
                 "/Applications/Mathematica.app/Contents/SystemFiles/Links/JLink");
 

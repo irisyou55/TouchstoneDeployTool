@@ -3,7 +3,10 @@ package Pretreatment;
 import ConstraintChains.*;
 import QueryInstantiation.Parameter;
 import Schema.Attribute;
-import org.apache.log4j.Logger;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import run.QueryInstantiator;
 import run.Statistic;
 
 import java.io.Serializable;
@@ -11,6 +14,8 @@ import java.text.SimpleDateFormat;
 import java.util.*;
 
 public class TableGeneTemplate implements Serializable {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(TableGeneTemplate.class);
 
     private static final long serialVersionUID = 1L;
 
@@ -79,12 +84,11 @@ public class TableGeneTemplate implements Serializable {
 
     private transient int pkJoinStatuses;
 
-    private transient Logger logger = null;
     private transient SimpleDateFormat dateSdf = null;
     private transient SimpleDateFormat dateTimeSdf = null;
 
     public void init() {
-        logger.debug("\n\tStart the initialization of table " + tableName);
+        LOGGER.debug("\n\tStart the initialization of table " + tableName);
 
         fksJoinInfoSizeMap = new HashMap<String, ArrayList<JoinStatusesSizePair>>();
         satisfiedFkJoinInfo = new ArrayList<JoinStatusesSizePair>();
@@ -101,7 +105,7 @@ public class TableGeneTemplate implements Serializable {
                         new JoinStatusesSizePair(entry2.getKey(), entry2.getValue().size()));
             }
         }
-        logger.debug("\nThe fksJoinInfoSizeMap is: " + fksJoinInfoSizeMap);
+        LOGGER.debug("\nThe fksJoinInfoSizeMap is: " + fksJoinInfoSizeMap);
 
         pkJoinInfo = new HashMap<Integer, ArrayList<long[]>>();
         pkJoinInfoSizeMap = new HashMap<Integer, Long>();
@@ -148,10 +152,10 @@ public class TableGeneTemplate implements Serializable {
                 break;
             } else {
                 Collections.shuffle(constraintChains);
-                logger.debug("\n\tShuffle the constraint chains!, and the number of times is " + i);
+                LOGGER.debug("\n\tShuffle the constraint chains!, and the number of times is " + i);
             }
         }
-        logger.info("\n\t The number of rules in constraint chains:" + getRulesNum());
+        LOGGER.info("\n\t The number of rules in constraint chains:" + getRulesNum());
 
         // initialize the 'parsii' for all basic filter operations (FilterOperation)
         initParsii();
@@ -287,7 +291,7 @@ public class TableGeneTemplate implements Serializable {
             }
 
             if (cumulant == 0) {
-                logger.error("\n\tfkMissCount: " + Statistic.fkMissCount.incrementAndGet() +
+                LOGGER.error("\n\tfkMissCount: " + Statistic.fkMissCount.incrementAndGet() +
                         ", referenced primary key: " + entry.getKey() + ", numCount: " + numCount);
                 return tuple;
             }
@@ -362,7 +366,7 @@ public class TableGeneTemplate implements Serializable {
                     }
                 }
             }
-            logger.debug("\nAll 'FKJoin' nodes of " + referencedKeys.get(i) + fkJoinNodes);
+            LOGGER.debug("\nAll 'FKJoin' nodes of " + referencedKeys.get(i) + fkJoinNodes);
 
             // all 'FKJoinAdjustment' only share one array 'joinStatuses'
             boolean[] joinStatuses = new boolean[fkJoinNodes.size()];
@@ -381,12 +385,12 @@ public class TableGeneTemplate implements Serializable {
                 float probability = getProbability(fkJoinNodes, rules, order);
 
                 if (probability < 0 || probability > 1) {
-                    logger.error("probability is " + probability + ", adjustment is fail!");
+                    LOGGER.error("probability is " + probability + ", adjustment is fail!");
                     return false;
                 } else {
                     FKJoinAdjustment fkJoinAdjustment = new FKJoinAdjustment(order, joinStatuses, rules, probability);
                     fkJoinNodes.get(j).setFkJoinAdjustment(fkJoinAdjustment);
-                    logger.debug("\n\tAdjustment of fkJoins " + j + ": " + fkJoinAdjustment);
+                    LOGGER.debug("\n\tAdjustment of fkJoins " + j + ": " + fkJoinAdjustment);
                 }
             }
         }
